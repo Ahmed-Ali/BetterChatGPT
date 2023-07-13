@@ -1,125 +1,56 @@
 import React, { useEffect, useRef, useState } from 'react';
 import useStore from '@store/store';
-import { shallow } from 'zustand/shallow';
 
 import ChatFolder from './ChatFolder';
 import ChatHistory from './ChatHistory';
 import ChatSearch from './ChatSearch';
 
-import {
-  ChatHistoryInterface,
-  ChatHistoryFolderInterface,
-  ChatInterface,
-  FolderCollection,
-} from '@type/chat';
+import { ChatHistoryItem } from '@type/chat';
+import { isChatFolder } from '@utils/chat';
+
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
+
+const ChatHistoryItemComponent = ({ item }: { item: ChatHistoryItem }) => {
+  if (isChatFolder(item)) {
+    return <ChatFolder folder={item} key={item.id} />;
+  }
+  return (
+    <ChatHistory title={item.title} chatPath={item.path} key={`${item.id}`} />
+  );
+};
 
 const ChatHistoryList = () => {
-  const currentChatIndex = useStore((state) => state.currentChatIndex);
-  const setChats = useStore((state) => state.setChats);
-  const setFolders = useStore((state) => state.setFolders);
-  const chatTitles = useStore(
-    (state) => state.chats?.map((chat) => chat.title),
-    shallow
-  );
+  const chatHistoryApi = useChatHistoryApi();
+  const chatHistory = useStore((state) => state.chatHistory);
+  const activeChatPath = useStore((state) => state.activeChatPath);
 
   const [isHover, setIsHover] = useState<boolean>(false);
-  const [chatFolders, setChatFolders] = useState<ChatHistoryFolderInterface>(
-    {}
-  );
-  const [noChatFolders, setNoChatFolders] = useState<ChatHistoryInterface[]>(
-    []
-  );
+  const [chatItems, setChatItems] = useState<ChatHistoryItem[]>([]);
   const [filter, setFilter] = useState<string>('');
 
-  const chatsRef = useRef<ChatInterface[]>(useStore.getState().chats || []);
-  const foldersRef = useRef<FolderCollection>(useStore.getState().folders);
   const filterRef = useRef<string>(filter);
 
   const updateFolders = useRef(() => {
-    const _folders: ChatHistoryFolderInterface = {};
-    const _noFolders: ChatHistoryInterface[] = [];
-    const chats = useStore.getState().chats;
-    const folders = useStore.getState().folders;
+    const filteredChatItems = chatHistoryApi.filteredChatHistoryChildrenByTitle(
+      filterRef.current,
+      true
+    );
 
-    Object.values(folders)
-      .sort((a, b) => a.order - b.order)
-      .forEach((f) => (_folders[f.id] = []));
-
-    if (chats) {
-      chats.forEach((chat, index) => {
-        const _filterLowerCase = filterRef.current.toLowerCase();
-        const _chatTitle = chat.title.toLowerCase();
-        const _chatFolderName = chat.folder
-          ? folders[chat.folder].name.toLowerCase()
-          : '';
-
-        if (
-          !_chatTitle.includes(_filterLowerCase) &&
-          !_chatFolderName.includes(_filterLowerCase) &&
-          index !== useStore.getState().currentChatIndex
-        )
-          return;
-
-        if (!chat.folder) {
-          _noFolders.push({ title: chat.title, index: index, id: chat.id });
-        } else {
-          if (!_folders[chat.folder]) _folders[_chatFolderName] = [];
-          _folders[chat.folder].push({
-            title: chat.title,
-            index: index,
-            id: chat.id,
-          });
-        }
-      });
-    }
-
-    setChatFolders(_folders);
-    setNoChatFolders(_noFolders);
+    setChatItems(filteredChatItems);
   }).current;
 
   useEffect(() => {
     updateFolders();
-
-    useStore.subscribe((state) => {
-      if (
-        !state.generating &&
-        state.chats &&
-        state.chats !== chatsRef.current
-      ) {
-        updateFolders();
-        chatsRef.current = state.chats;
-      } else if (state.folders !== foldersRef.current) {
-        updateFolders();
-        foldersRef.current = state.folders;
-      }
-    });
-  }, []);
+  }, [chatHistory]);
 
   useEffect(() => {
-    if (
-      chatTitles &&
-      currentChatIndex >= 0 &&
-      currentChatIndex < chatTitles.length
-    ) {
-      // set title
-      document.title = chatTitles[currentChatIndex];
-
-      // expand folder of current chat
-      const chats = useStore.getState().chats;
-      if (chats) {
-        const folderId = chats[currentChatIndex].folder;
-
-        if (folderId) {
-          const updatedFolders: FolderCollection = JSON.parse(
-            JSON.stringify(useStore.getState().folders)
-          );
-
-          updatedFolders[folderId].expanded = true;
-          setFolders(updatedFolders);
-        }
-      }
+    if (chatHistoryApi.noActiveChatThread()) {
+      return;
     }
-  }, [currentChatIndex, chatTitles]);
+    chatHistoryApi.setChatFolderExpanded(activeChatPath, true);
+    document.title =
+      chatHistoryApi.getChatThreadTitle(activeChatPath) ?? document.title;
+  }, [activeChatPath]);
 
   useEffect(() => {
     filterRef.current = filter;
@@ -131,12 +62,15 @@ const ChatHistoryList = () => {
       e.stopPropagation();
       setIsHover(false);
 
-      const chatIndex = Number(e.dataTransfer.getData('chatIndex'));
-      const updatedChats: ChatInterface[] = JSON.parse(
-        JSON.stringify(useStore.getState().chats)
+      const chatPath = e.dataTransfer
+        .getData('chatPath')
+        .split(',')
+        .map(Number);
+      chatHistoryApi.moveChatThreadToFolder(
+        chatPath,
+        chatHistoryApi.rootPath(),
+        false
       );
-      delete updatedChats[chatIndex].folder;
-      setChats(updatedChats);
     }
   };
 
@@ -165,27 +99,10 @@ const ChatHistoryList = () => {
     >
       <ChatSearch filter={filter} setFilter={setFilter} />
       <div className='flex flex-col gap-2 text-gray-100 text-sm'>
-        {Object.keys(chatFolders).map((folderId) => (
-          <ChatFolder
-            folderChats={chatFolders[folderId]}
-            folderId={folderId}
-            key={folderId}
-          />
-        ))}
-        {noChatFolders.map(({ title, index, id }) => (
-          <ChatHistory title={title} key={`${title}-${id}`} chatIndex={index} />
-        ))}
+        {chatItems.map((item) => ChatHistoryItemComponent({ item }))}
       </div>
       <div className='w-full h-10' />
     </div>
-  );
-};
-
-const ShowMoreButton = () => {
-  return (
-    <button className='btn relative btn-dark btn-small m-auto mb-2'>
-      <div className='flex items-center justify-center gap-2'>Show more</div>
-    </button>
   );
 };
 

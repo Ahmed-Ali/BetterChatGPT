@@ -5,15 +5,15 @@ import useStore from '@store/store';
 import PopupModal from '@components/PopupModal';
 import { submitShareGPT } from '@api/api';
 import { ShareGPTSubmitBodyInterface } from '@type/api';
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
 
 const ShareGPT = React.memo(() => {
   const { t } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-
+  const chatHistoryApi = useChatHistoryApi();
   const handleConfirm = async () => {
-    const chats = useStore.getState().chats;
-    const currentChatIndex = useStore.getState().currentChatIndex;
-    if (chats) {
+    const activeChatThread = chatHistoryApi.activeChatThread();
+    if (activeChatThread) {
       try {
         const items: ShareGPTSubmitBodyInterface['items'] = [];
         const messages = document.querySelectorAll('.share-gpt-message');
@@ -21,9 +21,9 @@ const ShareGPT = React.memo(() => {
         messages.forEach((message, index) => {
           items.push({
             from: 'gpt',
-            value: `<p><b>${t(
-              chats[currentChatIndex].messages[index].role
-            )}</b></p>${message.innerHTML}`,
+            value: `<p><b>${t(activeChatThread.messages[index].role)}</b></p>${
+              message.innerHTML
+            }`,
           });
         });
 

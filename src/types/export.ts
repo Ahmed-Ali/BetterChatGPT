@@ -1,4 +1,9 @@
-import { ChatInterface, FolderCollection, Role } from './chat';
+import {
+  ChatInterface,
+  FolderCollection,
+  Role,
+  ChatHistoryListInterface,
+} from './chat';
 
 export interface ExportBase {
   version: number;
@@ -7,6 +12,10 @@ export interface ExportBase {
 export interface ExportV1 extends ExportBase {
   chats?: ChatInterface[];
   folders: FolderCollection;
+}
+
+export interface ExportV2 extends ExportBase {
+  chatHistory: ChatHistoryListInterface;
 }
 
 export type OpenAIChat = {

@@ -10,10 +10,12 @@ import MenuOptions from './MenuOptions';
 import CrossIcon2 from '@icon/CrossIcon2';
 import DownArrow from '@icon/DownArrow';
 import MenuIcon from '@icon/MenuIcon';
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
 
 const Menu = () => {
   const hideSideMenu = useStore((state) => state.hideSideMenu);
   const setHideSideMenu = useStore((state) => state.setHideSideMenu);
+  const chatHistoryApi = useChatHistoryApi();
 
   const windowWidthRef = useRef<number>(window.innerWidth);
 
@@ -40,7 +42,7 @@ const Menu = () => {
           <div className='flex h-full w-full flex-1 items-start border-white/20'>
             <nav className='flex h-full flex-1 flex-col space-y-1 px-2 pt-2'>
               <div className='flex gap-2'>
-                <NewChat />
+                <NewChat parentPath={chatHistoryApi.rootPath()} />
                 <NewFolder />
               </div>
               <ChatHistoryList />

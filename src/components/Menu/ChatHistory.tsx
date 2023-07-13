@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-import useInitialiseNewChat from '@hooks/useInitialiseNewChat';
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
 
 import ChatIcon from '@icon/ChatIcon';
 import CrossIcon from '@icon/CrossIcon';
@@ -21,11 +21,10 @@ const ChatHistoryClass = {
 };
 
 const ChatHistory = React.memo(
-  ({ title, chatIndex }: { title: string; chatIndex: number }) => {
-    const initialiseNewChat = useInitialiseNewChat();
-    const setCurrentChatIndex = useStore((state) => state.setCurrentChatIndex);
-    const setChats = useStore((state) => state.setChats);
-    const active = useStore((state) => state.currentChatIndex === chatIndex);
+  ({ title, chatPath }: { title: string; chatPath: number[] }) => {
+    const chatHistoryApi = useChatHistoryApi();
+
+    const active = useStore((state) => state.activeChatPath === chatPath);
     const generating = useStore((state) => state.generating);
 
     const [isDelete, setIsDelete] = useState<boolean>(false);
@@ -34,25 +33,13 @@ const ChatHistory = React.memo(
     const inputRef = useRef<HTMLInputElement>(null);
 
     const editTitle = () => {
-      const updatedChats = JSON.parse(
-        JSON.stringify(useStore.getState().chats)
-      );
-      updatedChats[chatIndex].title = _title;
-      setChats(updatedChats);
+      chatHistoryApi.setChatThreadTitle(chatPath, _title);
       setIsEdit(false);
     };
 
     const deleteChat = () => {
-      const updatedChats = JSON.parse(
-        JSON.stringify(useStore.getState().chats)
-      );
-      updatedChats.splice(chatIndex, 1);
-      if (updatedChats.length > 0) {
-        setCurrentChatIndex(0);
-        setChats(updatedChats);
-      } else {
-        initialiseNewChat();
-      }
+      chatHistoryApi.deleteChatThread(chatPath, true);
+
       setIsDelete(false);
     };
 
@@ -77,7 +64,7 @@ const ChatHistory = React.memo(
 
     const handleDragStart = (e: React.DragEvent<HTMLAnchorElement>) => {
       if (e.dataTransfer) {
-        e.dataTransfer.setData('chatIndex', String(chatIndex));
+        e.dataTransfer.setData('chatPath', chatPath.join(','));
       }
     };
 
@@ -95,7 +82,7 @@ const ChatHistory = React.memo(
             : 'cursor-pointer opacity-100'
         }`}
         onClick={() => {
-          if (!generating) setCurrentChatIndex(chatIndex);
+          if (!generating) chatHistoryApi.setActiveChatPath(chatPath);
         }}
         draggable
         onDragStart={handleDragStart}

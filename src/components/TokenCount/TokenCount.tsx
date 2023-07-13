@@ -3,22 +3,19 @@ import useStore from '@store/store';
 import { shallow } from 'zustand/shallow';
 
 import countTokens from '@utils/messageUtils';
-import { modelCost } from '@constants/chat';
+import { _defaultChatConfig, modelCost } from '@constants/chat';
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
+import { use } from 'i18next';
 
 const TokenCount = React.memo(() => {
   const [tokenCount, setTokenCount] = useState<number>(0);
   const generating = useStore((state) => state.generating);
-  const messages = useStore(
-    (state) =>
-      state.chats ? state.chats[state.currentChatIndex].messages : [],
-    shallow
-  );
+  const chatHistoryApi = useChatHistoryApi();
 
-  const model = useStore((state) =>
-    state.chats
-      ? state.chats[state.currentChatIndex].config.model
-      : 'gpt-3.5-turbo'
-  );
+  const model =
+    chatHistoryApi.activeChatThread()?.config.model ??
+    chatHistoryApi.history().config.model;
+  const messages = chatHistoryApi.activeChatThread()?.messages ?? [];
 
   const cost = useMemo(() => {
     const price =

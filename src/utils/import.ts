@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import {
   ChatInterface,
+  ChatThreadInterface,
   ConfigInterface,
   FolderCollection,
   MessageInterface,
@@ -12,7 +13,9 @@ import {
   modelOptions,
   _defaultChatConfig,
 } from '@constants/chat';
-import { ExportV1, OpenAIChat } from '@type/export';
+import { ExportV1, ExportV2, OpenAIChat } from '@type/export';
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
+import { use } from 'i18next';
 
 export const validateAndFixChats = (chats: any): chats is ChatInterface[] => {
   if (!Array.isArray(chats)) return false;
@@ -89,10 +92,20 @@ export const validateExportV1 = (data: ExportV1): data is ExportV1 => {
   return validateAndFixChats(data.chats) && validateFolders(data.folders);
 };
 
+export const isValidExportV2 = (data: ExportV2): data is ExportV2 => {
+  return (
+    data.chatHistory !== undefined &&
+    Array.isArray(data.chatHistory.children) &&
+    data.chatHistory.config !== undefined
+  );
+};
+
 // Convert OpenAI chat format to BetterChatGPT format
 export const convertOpenAIToBetterChatGPTFormat = (
-  openAIChat: OpenAIChat
-): ChatInterface => {
+  openAIChat: OpenAIChat,
+  defaultConfig: ConfigInterface,
+  path: number[]
+): ChatThreadInterface => {
   const messages: MessageInterface[] = [];
 
   // Traverse the chat tree and collect messages
@@ -121,12 +134,21 @@ export const convertOpenAIToBetterChatGPTFormat = (
     id: uuidv4(),
     title: openAIChat.title,
     messages,
-    config: _defaultChatConfig,
+    config: defaultConfig,
+    path,
     titleSet: true,
   };
 };
 
 // Import OpenAI chat data and convert it to BetterChatGPT format
 export const importOpenAIChatExport = (openAIChatExport: OpenAIChat[]) => {
-  return openAIChatExport.map(convertOpenAIToBetterChatGPTFormat);
+  const chatHistoryApi = useChatHistoryApi();
+  const chatHistory = chatHistoryApi.history();
+  const config = chatHistory.config;
+  const path = chatHistoryApi.nextChatItemChildPath(chatHistory);
+  return openAIChatExport.map((openAIChat, index) => {
+    const itemPath = path;
+    itemPath[itemPath.length - 1] += index;
+    return convertOpenAIToBetterChatGPTFormat(openAIChat, config, itemPath);
+  });
 };

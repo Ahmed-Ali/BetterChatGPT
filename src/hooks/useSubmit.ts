@@ -1,4 +1,3 @@
-import React from 'react';
 import useStore from '@store/store';
 import { useTranslation } from 'react-i18next';
 import { ChatInterface, MessageInterface } from '@type/chat';
@@ -8,6 +7,8 @@ import { limitMessageTokens, updateTotalTokenUsed } from '@utils/messageUtils';
 import { _defaultChatConfig } from '@constants/chat';
 import { officialAPIEndpoint } from '@constants/auth';
 
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
+
 const useSubmit = () => {
   const { t, i18n } = useTranslation('api');
   const error = useStore((state) => state.error);
@@ -16,8 +17,8 @@ const useSubmit = () => {
   const apiKey = useStore((state) => state.apiKey);
   const setGenerating = useStore((state) => state.setGenerating);
   const generating = useStore((state) => state.generating);
-  const currentChatIndex = useStore((state) => state.currentChatIndex);
-  const setChats = useStore((state) => state.setChats);
+
+  const chatHistoryApi = useChatHistoryApi();
 
   const generateTitle = async (
     message: MessageInterface[]
@@ -52,28 +53,25 @@ const useSubmit = () => {
   };
 
   const handleSubmit = async () => {
-    const chats = useStore.getState().chats;
-    if (generating || !chats) return;
+    if (generating || chatHistoryApi.isChatHistoryEmpty()) return;
 
-    const updatedChats: ChatInterface[] = JSON.parse(JSON.stringify(chats));
-
-    updatedChats[currentChatIndex].messages.push({
+    chatHistoryApi.appendMessageToActiveChatThread({
       role: 'assistant',
       content: '',
     });
 
-    setChats(updatedChats);
     setGenerating(true);
 
     try {
       let stream;
-      if (chats[currentChatIndex].messages.length === 0)
+      const activeChatThread = chatHistoryApi.activeChatThread();
+      if (!activeChatThread || activeChatThread.messages.length === 0)
         throw new Error('No messages submitted!');
 
       const messages = limitMessageTokens(
-        chats[currentChatIndex].messages,
-        chats[currentChatIndex].config.max_tokens,
-        chats[currentChatIndex].config.model
+        activeChatThread.messages,
+        activeChatThread.config.max_tokens,
+        activeChatThread.config.model
       );
       if (messages.length === 0) throw new Error('Message exceed max token!');
 
@@ -88,14 +86,14 @@ const useSubmit = () => {
         stream = await getChatCompletionStream(
           useStore.getState().apiEndpoint,
           messages,
-          chats[currentChatIndex].config
+          activeChatThread.config
         );
       } else if (apiKey) {
         // own apikey
         stream = await getChatCompletionStream(
           useStore.getState().apiEndpoint,
           messages,
-          chats[currentChatIndex].config,
+          activeChatThread.config,
           apiKey
         );
       }
@@ -128,12 +126,13 @@ const useSubmit = () => {
               return output;
             }, '');
 
-            const updatedChats: ChatInterface[] = JSON.parse(
-              JSON.stringify(useStore.getState().chats)
+            chatHistoryApi.mutateChatThread(
+              chatHistoryApi.activeChatPath(),
+              (thread) => {
+                thread.messages[thread.messages.length - 1].content +=
+                  resultString;
+              }
             );
-            const updatedMessages = updatedChats[currentChatIndex].messages;
-            updatedMessages[updatedMessages.length - 1].content += resultString;
-            setChats(updatedChats);
           }
         }
         if (useStore.getState().generating) {
@@ -146,12 +145,11 @@ const useSubmit = () => {
       }
 
       // update tokens used in chatting
-      const currChats = useStore.getState().chats;
       const countTotalTokens = useStore.getState().countTotalTokens;
 
-      if (currChats && countTotalTokens) {
-        const model = currChats[currentChatIndex].config.model;
-        const messages = currChats[currentChatIndex].messages;
+      if (countTotalTokens) {
+        const model = activeChatThread.config.model;
+        const messages = activeChatThread.messages;
         updateTotalTokenUsed(
           model,
           messages.slice(0, -1),
@@ -160,16 +158,12 @@ const useSubmit = () => {
       }
 
       // generate title for new chats
-      if (
-        useStore.getState().autoTitle &&
-        currChats &&
-        !currChats[currentChatIndex]?.titleSet
-      ) {
-        const messages_length = currChats[currentChatIndex].messages.length;
+      if (useStore.getState().autoTitle && !activeChatThread.titleSet) {
+        const messages_length = activeChatThread.messages.length;
         const assistant_message =
-          currChats[currentChatIndex].messages[messages_length - 1].content;
+          activeChatThread.messages[messages_length - 1].content;
         const user_message =
-          currChats[currentChatIndex].messages[messages_length - 2].content;
+          activeChatThread.messages[messages_length - 2].content;
 
         const message: MessageInterface = {
           role: 'user',
@@ -180,12 +174,14 @@ const useSubmit = () => {
         if (title.startsWith('"') && title.endsWith('"')) {
           title = title.slice(1, -1);
         }
-        const updatedChats: ChatInterface[] = JSON.parse(
-          JSON.stringify(useStore.getState().chats)
+
+        chatHistoryApi.mutateChatThread(
+          chatHistoryApi.activeChatPath(),
+          (thread) => {
+            thread.title = title;
+            thread.titleSet = true;
+          }
         );
-        updatedChats[currentChatIndex].title = title;
-        updatedChats[currentChatIndex].titleSet = true;
-        setChats(updatedChats);
 
         // update tokens used for generating title
         if (countTotalTokens) {

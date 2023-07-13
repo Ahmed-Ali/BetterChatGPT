@@ -8,15 +8,18 @@ import {
   isLegacyImport,
   validateAndFixChats,
   validateExportV1,
+  isValidExportV2,
 } from '@utils/import';
 
 import { ChatInterface, Folder, FolderCollection } from '@type/chat';
 import { ExportBase } from '@type/export';
+import { createUpdatedChatHistoryFromLegacyChats } from '@utils/chat';
+
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
 
 const ImportChat = () => {
   const { t } = useTranslation();
-  const setChats = useStore.getState().setChats;
-  const setFolders = useStore.getState().setFolders;
+  const chatHistoryApi = useChatHistoryApi();
   const inputRef = useRef<HTMLInputElement>(null);
   const [alert, setAlert] = useState<{
     message: string;
@@ -69,20 +72,34 @@ const ImportChat = () => {
               // increment the order of existing folders
               const offset = parsedFolders.length;
 
-              const updatedFolders = useStore.getState().folders;
+              let updatedFolders = useStore.getState().folders;
               Object.values(updatedFolders).forEach((f) => (f.order += offset));
-
-              setFolders({ ...newFolders, ...updatedFolders });
+              updatedFolders = { ...newFolders, ...updatedFolders };
 
               // import chats
-              const prevChats = useStore.getState().chats;
-              if (prevChats) {
-                const updatedChats: ChatInterface[] = JSON.parse(
-                  JSON.stringify(prevChats)
+              const prevChatHistory = chatHistoryApi.clonedChatHistory();
+              const importedChatHistory =
+                createUpdatedChatHistoryFromLegacyChats(
+                  parsedData,
+                  updatedFolders,
+                  useStore.getState().defaultChatConfig
                 );
-                setChats(parsedData.concat(updatedChats));
+              if (prevChatHistory.children.length > 0) {
+                chatHistoryApi.setChatHistory(
+                  {
+                    ...prevChatHistory,
+                    children: [
+                      ...prevChatHistory.children,
+                      ...importedChatHistory.children,
+                    ],
+                  },
+                  chatHistoryApi.activeChatPath()
+                );
               } else {
-                setChats(parsedData);
+                chatHistoryApi.setChatHistory(
+                  importedChatHistory,
+                  chatHistoryApi.activeChatPath()
+                );
               }
               setAlert({ message: 'Succesfully imported!', success: true });
             } else {
@@ -100,23 +117,38 @@ const ImportChat = () => {
                   // increment the order of existing folders
                   const offset = Object.keys(parsedData.folders).length;
 
-                  const updatedFolders = useStore.getState().folders;
+                  let updatedFolders = useStore.getState().folders;
                   Object.values(updatedFolders).forEach(
                     (f) => (f.order += offset)
                   );
 
-                  setFolders({ ...parsedData.folders, ...updatedFolders });
+                  updatedFolders = { ...parsedData.folders, ...updatedFolders };
 
                   // import chats
-                  const prevChats = useStore.getState().chats;
                   if (parsedData.chats) {
-                    if (prevChats) {
-                      const updatedChats: ChatInterface[] = JSON.parse(
-                        JSON.stringify(prevChats)
+                    const importedChatHistory =
+                      createUpdatedChatHistoryFromLegacyChats(
+                        parsedData.chats,
+                        updatedFolders,
+                        useStore.getState().defaultChatConfig
                       );
-                      setChats(parsedData.chats.concat(updatedChats));
+                    const prevChatHistory = chatHistoryApi.clonedChatHistory();
+                    if (prevChatHistory.children.length > 0) {
+                      chatHistoryApi.setChatHistory(
+                        {
+                          ...prevChatHistory,
+                          children: [
+                            ...prevChatHistory.children,
+                            ...importedChatHistory.children,
+                          ],
+                        },
+                        chatHistoryApi.activeChatPath()
+                      );
                     } else {
-                      setChats(parsedData.chats);
+                      chatHistoryApi.setChatHistory(
+                        importedChatHistory,
+                        chatHistoryApi.activeChatPath()
+                      );
                     }
                   }
 
@@ -128,6 +160,34 @@ const ImportChat = () => {
                   });
                 }
                 break;
+
+              case 2:
+                if (isValidExportV2(parsedData)) {
+                  const prevChatHistory = chatHistoryApi.clonedChatHistory();
+                  if (prevChatHistory.children.length > 0) {
+                    chatHistoryApi.setChatHistory(
+                      {
+                        ...prevChatHistory,
+                        children: [
+                          ...prevChatHistory.children,
+                          ...parsedData.chatHistory.children,
+                        ],
+                      },
+                      chatHistoryApi.activeChatPath()
+                    );
+                  } else {
+                    chatHistoryApi.setChatHistory(
+                      parsedData.chatHistory,
+                      chatHistoryApi.activeChatPath()
+                    );
+                  }
+                  setAlert({ message: 'Succesfully imported!', success: true });
+                } else {
+                  setAlert({
+                    message: 'Invalid format',
+                    success: false,
+                  });
+                }
             }
           }
         } catch (error: unknown) {

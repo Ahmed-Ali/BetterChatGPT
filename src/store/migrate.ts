@@ -130,7 +130,7 @@ export const migrateV8 = (persistedState: LocalStorageInterfaceV8ToV9) => {
   }
 
   // TODO: Clear unused fields
-  // persistedState.chats = [];
-  // persistedState.currentChatIndex = -1;
-  // persistedState.folders = {};
+  persistedState.chats = [];
+  persistedState.currentChatIndex = -1;
+  persistedState.folders = {};
 };

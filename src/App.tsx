@@ -1,22 +1,26 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import useStore from '@store/store';
 import i18n from './i18n';
 
 import Chat from '@components/Chat';
 import Menu from '@components/Menu';
 
-import useInitialiseNewChat from '@hooks/useInitialiseNewChat';
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
 import { ChatInterface } from '@type/chat';
 import { Theme } from '@type/theme';
 import ApiPopup from '@components/ApiPopup';
 import Toast from '@components/Toast';
+import { createUpdatedChatHistoryFromLegacyChats } from '@utils/chat';
 
 function App() {
-  const initialiseNewChat = useInitialiseNewChat();
-  const setChats = useStore((state) => state.setChats);
+  const chatHistoryApi = useChatHistoryApi();
+
   const setTheme = useStore((state) => state.setTheme);
   const setApiKey = useStore((state) => state.setApiKey);
-  const setCurrentChatIndex = useStore((state) => state.setCurrentChatIndex);
+
+  const defaultChatConfig = useStore((state) => state.defaultChatConfig);
+
+  const legacyChatFolders = useStore((state) => state.folders);
 
   useEffect(() => {
     document.documentElement.lang = i18n.language;
@@ -45,31 +49,43 @@ function App() {
 
     if (oldChats) {
       // legacy local storage
+      // TODO: there is implicit assumption
+      // that the legacy local storage
+      // was before folders were introduced
       try {
         const chats: ChatInterface[] = JSON.parse(oldChats);
         if (chats.length > 0) {
-          setChats(chats);
-          setCurrentChatIndex(0);
+          const updatedChatHistory = createUpdatedChatHistoryFromLegacyChats(
+            chats,
+            legacyChatFolders,
+            defaultChatConfig
+          );
+          chatHistoryApi.setChatHistory(
+            updatedChatHistory,
+            chatHistoryApi.getRootPathWithChildIndex(0)
+          );
         } else {
-          initialiseNewChat();
+          chatHistoryApi.appendAndActivateNewChatThread(
+            chatHistoryApi.rootPath()
+          );
         }
       } catch (e: unknown) {
         console.log(e);
-        initialiseNewChat();
+        if (chatHistoryApi.fullyInitialized()) {
+          chatHistoryApi.appendAndActivateNewChatThread(
+            chatHistoryApi.rootPath()
+          );
+        }
       }
       localStorage.removeItem('chats');
     } else {
       // existing local storage
-      const chats = useStore.getState().chats;
-      const currentChatIndex = useStore.getState().currentChatIndex;
-      if (!chats || chats.length === 0) {
-        initialiseNewChat();
-      }
-      if (
-        chats &&
-        !(currentChatIndex >= 0 && currentChatIndex < chats.length)
-      ) {
-        setCurrentChatIndex(0);
+      if (chatHistoryApi.isChatHistoryEmpty()) {
+        chatHistoryApi.appendAndActivateNewChatThread(
+          chatHistoryApi.rootPath()
+        );
+      } else {
+        chatHistoryApi.resetActiveChatPathIfInvalid();
       }
     }
   }, []);

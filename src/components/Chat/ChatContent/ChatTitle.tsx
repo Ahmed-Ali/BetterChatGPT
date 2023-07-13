@@ -3,42 +3,31 @@ import { useTranslation } from 'react-i18next';
 import { shallow } from 'zustand/shallow';
 import useStore from '@store/store';
 import ConfigMenu from '@components/ConfigMenu';
-import { ChatInterface, ConfigInterface } from '@type/chat';
+import { ConfigInterface } from '@type/chat';
 import { _defaultChatConfig } from '@constants/chat';
+
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
 
 const ChatTitle = React.memo(() => {
   const { t } = useTranslation('model');
+  const chatHistoryApi = useChatHistoryApi();
   const config = useStore(
-    (state) =>
-      state.chats &&
-      state.chats.length > 0 &&
-      state.currentChatIndex >= 0 &&
-      state.currentChatIndex < state.chats.length
-        ? state.chats[state.currentChatIndex].config
-        : undefined,
+    () => chatHistoryApi.activeChatThread()?.config ?? undefined,
+
     shallow
   );
-  const setChats = useStore((state) => state.setChats);
-  const currentChatIndex = useStore((state) => state.currentChatIndex);
+
+  const activeChatPath = useStore((state) => state.activeChatPath);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   const setConfig = (config: ConfigInterface) => {
-    const updatedChats: ChatInterface[] = JSON.parse(
-      JSON.stringify(useStore.getState().chats)
-    );
-    updatedChats[currentChatIndex].config = config;
-    setChats(updatedChats);
+    chatHistoryApi.setConfigForActiveChatThread(config);
   };
 
   // for migrating from old ChatInterface to new ChatInterface (with config)
   useEffect(() => {
-    const chats = useStore.getState().chats;
-    if (chats && chats.length > 0 && currentChatIndex !== -1 && !config) {
-      const updatedChats: ChatInterface[] = JSON.parse(JSON.stringify(chats));
-      updatedChats[currentChatIndex].config = { ..._defaultChatConfig };
-      setChats(updatedChats);
-    }
-  }, [currentChatIndex]);
+    chatHistoryApi.setConfigForActiveChatThreadIfNotSet();
+  }, [activeChatPath]);
 
   return config ? (
     <>

@@ -6,6 +6,7 @@ import DownChevronArrow from '@icon/DownChevronArrow';
 import { ChatInterface, Role, roles } from '@type/chat';
 
 import useHideOnOutsideClick from '@hooks/useHideOnOutsideClick';
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
 
 const RoleSelector = React.memo(
   ({
@@ -19,8 +20,7 @@ const RoleSelector = React.memo(
   }) => {
     const { t } = useTranslation();
     const setInputRole = useStore((state) => state.setInputRole);
-    const setChats = useStore((state) => state.setChats);
-    const currentChatIndex = useStore((state) => state.currentChatIndex);
+    const chatHistoryApi = useChatHistoryApi();
 
     const [dropDown, setDropDown, dropDownRef] = useHideOnOutsideClick();
 
@@ -50,12 +50,10 @@ const RoleSelector = React.memo(
                 className='px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white cursor-pointer'
                 onClick={() => {
                   if (!sticky) {
-                    const updatedChats: ChatInterface[] = JSON.parse(
-                      JSON.stringify(useStore.getState().chats)
+                    chatHistoryApi.setActiveChatThreadMessageRole(
+                      r,
+                      messageIndex
                     );
-                    updatedChats[currentChatIndex].messages[messageIndex].role =
-                      r;
-                    setChats(updatedChats);
                   } else {
                     setInputRole(r);
                   }

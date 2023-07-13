@@ -5,11 +5,13 @@ import useStore from '@store/store';
 
 import downloadFile from '@utils/downloadFile';
 import { getToday } from '@utils/date';
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
 
-import Export from '@type/export';
+import { ExportV2 } from '@type/export';
 
 const ExportChat = () => {
   const { t } = useTranslation();
+  const chatHistoryApi = useChatHistoryApi();
 
   return (
     <div className='mt-6'>
@@ -19,10 +21,9 @@ const ExportChat = () => {
       <button
         className='btn btn-small btn-primary'
         onClick={() => {
-          const fileData: Export = {
-            chats: useStore.getState().chats,
-            folders: useStore.getState().folders,
-            version: 1,
+          const fileData: ExportV2 = {
+            chatHistory: chatHistoryApi.history(),
+            version: 2,
           };
           downloadFile(fileData, getToday());
         }}

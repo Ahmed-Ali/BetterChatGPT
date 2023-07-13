@@ -6,6 +6,7 @@ import useStore from '@store/store';
 import { importOpenAIChatExport } from '@utils/import';
 
 import { ChatInterface } from '@type/chat';
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
 
 const ImportChatOpenAI = ({
   setIsModalOpen,
@@ -19,7 +20,7 @@ const ImportChatOpenAI = ({
   const setToastStatus = useStore((state) => state.setToastStatus);
   const setToastMessage = useStore((state) => state.setToastMessage);
   const setToastShow = useStore((state) => state.setToastShow);
-  const setChats = useStore.getState().setChats;
+  const chatHistoryApi = useChatHistoryApi();
 
   const handleFileUpload = () => {
     if (!inputRef || !inputRef.current) return;
@@ -34,10 +35,7 @@ const ImportChatOpenAI = ({
       try {
         const parsedData = JSON.parse(data);
         const chats = importOpenAIChatExport(parsedData);
-        const prevChats: ChatInterface[] = JSON.parse(
-          JSON.stringify(useStore.getState().chats)
-        );
-        setChats(chats.concat(prevChats));
+        chatHistoryApi.bulkAppendChatThreads(chats);
 
         setToastStatus('success');
         setToastMessage('Imported successfully!');

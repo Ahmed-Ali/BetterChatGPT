@@ -1,27 +1,27 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import useStore from '@store/store';
 
 import PopupModal from '@components/PopupModal';
 import DeleteIcon from '@icon/DeleteIcon';
-import useInitialiseNewChat from '@hooks/useInitialiseNewChat';
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
+import { _defaultEmptyChatHistory } from '@constants/chat';
+import { use } from 'i18next';
 
 const ClearConversation = () => {
   const { t } = useTranslation();
 
-  const initialiseNewChat = useInitialiseNewChat();
-  const setFolders = useStore((state) => state.setFolders);
+  const chatHistoryApi = useChatHistoryApi();
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   const handleConfirm = () => {
     setIsModalOpen(false);
-    initialiseNewChat();
-    setFolders({});
+    chatHistoryApi.resetChatHistoryToSingleDefaultChatThread();
   };
 
   return (
     <>
-      <button className='btn btn-neutral'
+      <button
+        className='btn btn-neutral'
         onClick={() => {
           setIsModalOpen(true);
         }}

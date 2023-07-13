@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   ChatHistoryListInterface,
   ConfigInterface,
-  ChatInterface,
+  ChatThreadInterface,
   ModelOptions,
 } from '@type/chat';
 import useStore from '@store/store';
@@ -116,18 +116,19 @@ export const _defaultEmptyChatHistory: ChatHistoryListInterface = {
 };
 
 export const generateDefaultChat = (
-  title?: string,
-  folder?: string
-): ChatInterface => ({
+  path: number[],
+  config: ConfigInterface,
+  title?: string
+): ChatThreadInterface => ({
   id: uuidv4(),
   title: title ? title : 'New Chat',
   messages:
     useStore.getState().defaultSystemMessage.length > 0
       ? [{ role: 'system', content: useStore.getState().defaultSystemMessage }]
       : [],
-  config: { ...useStore.getState().defaultChatConfig },
+  config: { ...config },
   titleSet: false,
-  folder,
+  path: path,
 });
 
 export const codeLanguageSubset = [

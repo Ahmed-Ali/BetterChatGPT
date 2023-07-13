@@ -10,6 +10,8 @@ import PopupModal from '@components/PopupModal';
 import TokenCount from '@components/TokenCount';
 import CommandPrompt from '../CommandPrompt';
 
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
+
 const EditView = ({
   content,
   setIsEdit,
@@ -22,12 +24,12 @@ const EditView = ({
   sticky?: boolean;
 }) => {
   const inputRole = useStore((state) => state.inputRole);
-  const setChats = useStore((state) => state.setChats);
-  const currentChatIndex = useStore((state) => state.currentChatIndex);
 
   const [_content, _setContent] = useState<string>(content);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const textareaRef = React.createRef<HTMLTextAreaElement>();
+
+  const chatHistoryApi = useChatHistoryApi();
 
   const { t } = useTranslation();
 
@@ -65,43 +67,38 @@ const EditView = ({
 
   const handleSave = () => {
     if (sticky && (_content === '' || useStore.getState().generating)) return;
-    const updatedChats: ChatInterface[] = JSON.parse(
-      JSON.stringify(useStore.getState().chats)
-    );
-    const updatedMessages = updatedChats[currentChatIndex].messages;
     if (sticky) {
-      updatedMessages.push({ role: inputRole, content: _content });
+      chatHistoryApi.appendMessageToActiveChatThread({
+        role: inputRole,
+        content: _content,
+      });
       _setContent('');
       resetTextAreaHeight();
     } else {
-      updatedMessages[messageIndex].content = _content;
+      chatHistoryApi.setActiveChatThreadMessageContent(messageIndex, _content);
       setIsEdit(false);
     }
-    setChats(updatedChats);
   };
 
   const { handleSubmit } = useSubmit();
   const handleSaveAndSubmit = () => {
     if (useStore.getState().generating) return;
-    const updatedChats: ChatInterface[] = JSON.parse(
-      JSON.stringify(useStore.getState().chats)
-    );
-    const updatedMessages = updatedChats[currentChatIndex].messages;
+
     if (sticky) {
       if (_content !== '') {
-        updatedMessages.push({ role: inputRole, content: _content });
+        chatHistoryApi.appendMessageToActiveChatThread({
+          role: inputRole,
+          content: _content,
+        });
       }
       _setContent('');
       resetTextAreaHeight();
     } else {
-      updatedMessages[messageIndex].content = _content;
-      updatedChats[currentChatIndex].messages = updatedMessages.slice(
-        0,
-        messageIndex + 1
-      );
+      chatHistoryApi.setActiveChatThreadMessageContent(messageIndex, _content);
+      chatHistoryApi.deleteActiveChatThreadMessagesAfterIndex(messageIndex);
       setIsEdit(false);
     }
-    setChats(updatedChats);
+
     handleSubmit();
   };
 

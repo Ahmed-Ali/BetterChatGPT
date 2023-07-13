@@ -3,21 +3,15 @@ import React from 'react';
 import useStore from '@store/store';
 import PlusIcon from '@icon/PlusIcon';
 import MenuIcon from '@icon/MenuIcon';
-import useAddChat from '@hooks/useAddChat';
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
 
 const MobileBar = () => {
   const generating = useStore((state) => state.generating);
   const setHideSideMenu = useStore((state) => state.setHideSideMenu);
-  const chatTitle = useStore((state) =>
-    state.chats &&
-    state.chats.length > 0 &&
-    state.currentChatIndex >= 0 &&
-    state.currentChatIndex < state.chats.length
-      ? state.chats[state.currentChatIndex].title
-      : 'New Chat'
-  );
-
-  const addChat = useAddChat();
+  const chatHistoryApi = useChatHistoryApi();
+  const chatTitle = useStore((state) => {
+    return chatHistoryApi.activeChatThread()?.title ?? 'New Chat';
+  });
 
   return (
     <div className='sticky top-0 left-0 w-full z-50 flex items-center border-b border-white/20 bg-gray-800 pl-1 pt-1 text-gray-200 sm:pl-3 md:hidden'>
@@ -42,7 +36,8 @@ const MobileBar = () => {
             : 'cursor-pointer opacity-100'
         }`}
         onClick={() => {
-          if (!generating) addChat();
+          if (!generating)
+            chatHistoryApi.prependNewChatThread(chatHistoryApi.rootPath());
         }}
       >
         <PlusIcon className='h-6 w-6' />

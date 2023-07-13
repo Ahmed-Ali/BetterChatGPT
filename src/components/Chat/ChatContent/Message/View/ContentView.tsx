@@ -33,6 +33,8 @@ import MarkdownModeButton from './Button/MarkdownModeButton';
 
 import CodeBlock from '../CodeBlock';
 
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
+
 const ContentView = memo(
   ({
     role,
@@ -46,56 +48,31 @@ const ContentView = memo(
     messageIndex: number;
   }) => {
     const { handleSubmit } = useSubmit();
+    const chatHistoryApi = useChatHistoryApi();
 
     const [isDelete, setIsDelete] = useState<boolean>(false);
 
-    const currentChatIndex = useStore((state) => state.currentChatIndex);
-    const setChats = useStore((state) => state.setChats);
-    const lastMessageIndex = useStore((state) =>
-      state.chats ? state.chats[state.currentChatIndex].messages.length - 1 : 0
-    );
     const inlineLatex = useStore((state) => state.inlineLatex);
     const markdownMode = useStore((state) => state.markdownMode);
 
+    const lastMessageIndex = () => {
+      const activeChatThread = chatHistoryApi.activeChatThread();
+      return activeChatThread ? activeChatThread.messages.length - 1 : 0;
+    };
+
     const handleDelete = () => {
-      const updatedChats: ChatInterface[] = JSON.parse(
-        JSON.stringify(useStore.getState().chats)
-      );
-      updatedChats[currentChatIndex].messages.splice(messageIndex, 1);
-      setChats(updatedChats);
+      chatHistoryApi.deleteActiveChatThreadMessage(messageIndex);
     };
-
-    const handleMove = (direction: 'up' | 'down') => {
-      const updatedChats: ChatInterface[] = JSON.parse(
-        JSON.stringify(useStore.getState().chats)
-      );
-      const updatedMessages = updatedChats[currentChatIndex].messages;
-      const temp = updatedMessages[messageIndex];
-      if (direction === 'up') {
-        updatedMessages[messageIndex] = updatedMessages[messageIndex - 1];
-        updatedMessages[messageIndex - 1] = temp;
-      } else {
-        updatedMessages[messageIndex] = updatedMessages[messageIndex + 1];
-        updatedMessages[messageIndex + 1] = temp;
-      }
-      setChats(updatedChats);
-    };
-
     const handleMoveUp = () => {
-      handleMove('up');
+      chatHistoryApi.moveActiveChatThreadMessage(messageIndex, 'up');
     };
 
     const handleMoveDown = () => {
-      handleMove('down');
+      chatHistoryApi.moveActiveChatThreadMessage(messageIndex, 'down');
     };
 
     const handleRefresh = () => {
-      const updatedChats: ChatInterface[] = JSON.parse(
-        JSON.stringify(useStore.getState().chats)
-      );
-      const updatedMessages = updatedChats[currentChatIndex].messages;
-      updatedMessages.splice(updatedMessages.length - 1, 1);
-      setChats(updatedChats);
+      chatHistoryApi.deleteActiveChatThreadLastMessage();
       handleSubmit();
     };
 
@@ -140,11 +117,11 @@ const ContentView = memo(
             <>
               {!useStore.getState().generating &&
                 role === 'assistant' &&
-                messageIndex === lastMessageIndex && (
+                messageIndex === lastMessageIndex() && (
                   <RefreshButton onClick={handleRefresh} />
                 )}
               {messageIndex !== 0 && <UpButton onClick={handleMoveUp} />}
-              {messageIndex !== lastMessageIndex && (
+              {messageIndex !== lastMessageIndex() && (
                 <DownButton onClick={handleMoveDown} />
               )}
 

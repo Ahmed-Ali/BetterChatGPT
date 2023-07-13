@@ -4,9 +4,9 @@ import useStore from '@store/store';
 import DownChevronArrow from '@icon/DownChevronArrow';
 import FolderIcon from '@icon/FolderIcon';
 import {
-  ChatHistoryInterface,
-  ChatInterface,
-  FolderCollection,
+  ChatHistoryItem,
+  ChatFolderInterface,
+  ChatHistoryListInterface,
 } from '@type/chat';
 
 import ChatHistory from './ChatHistory';
@@ -21,26 +21,27 @@ import RefreshIcon from '@icon/RefreshIcon';
 import { folderColorOptions } from '@constants/color';
 
 import useHideOnOutsideClick from '@hooks/useHideOnOutsideClick';
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
 
-const ChatFolder = ({
-  folderChats,
-  folderId,
-}: {
-  folderChats: ChatHistoryInterface[];
-  folderId: string;
-}) => {
-  const folderName = useStore((state) => state.folders[folderId]?.name);
-  const isExpanded = useStore((state) => state.folders[folderId]?.expanded);
-  const color = useStore((state) => state.folders[folderId]?.color);
+import { isChatFolder } from '@utils/chat';
 
-  const setChats = useStore((state) => state.setChats);
-  const setFolders = useStore((state) => state.setFolders);
+const ChatHistoryItemComponent = ({ item }: { item: ChatHistoryItem }) => {
+  if (isChatFolder(item)) {
+    return <ChatFolder folder={item} key={item.id} />;
+  }
+  return (
+    <ChatHistory title={item.title} chatPath={item.path} key={`${item.id}`} />
+  );
+};
+
+const ChatFolder = ({ folder }: { folder: ChatFolderInterface }) => {
+  const chatHistoryApi = useChatHistoryApi();
 
   const inputRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLDivElement>(null);
   const gradientRef = useRef<HTMLDivElement>(null);
 
-  const [_folderName, _setFolderName] = useState<string>(folderName);
+  const [_folderName, _setFolderName] = useState<string>(folder.title);
   const [isEdit, setIsEdit] = useState<boolean>(false);
   const [isDelete, setIsDelete] = useState<boolean>(false);
   const [isHover, setIsHover] = useState<boolean>(false);
@@ -48,39 +49,17 @@ const ChatFolder = ({
   const [showPalette, setShowPalette, paletteRef] = useHideOnOutsideClick();
 
   const editTitle = () => {
-    const updatedFolders: FolderCollection = JSON.parse(
-      JSON.stringify(useStore.getState().folders)
-    );
-    updatedFolders[folderId].name = _folderName;
-    setFolders(updatedFolders);
+    chatHistoryApi.setChatFolderTitle(folder.path, _folderName);
     setIsEdit(false);
   };
 
   const deleteFolder = () => {
-    const updatedChats: ChatInterface[] = JSON.parse(
-      JSON.stringify(useStore.getState().chats)
-    );
-    updatedChats.forEach((chat) => {
-      if (chat.folder === folderId) delete chat.folder;
-    });
-    setChats(updatedChats);
-
-    const updatedFolders: FolderCollection = JSON.parse(
-      JSON.stringify(useStore.getState().folders)
-    );
-    delete updatedFolders[folderId];
-    setFolders(updatedFolders);
-
+    chatHistoryApi.deleteChatFolder(folder.path);
     setIsDelete(false);
   };
 
   const updateColor = (_color?: string) => {
-    const updatedFolders: FolderCollection = JSON.parse(
-      JSON.stringify(useStore.getState().folders)
-    );
-    if (_color) updatedFolders[folderId].color = _color;
-    else delete updatedFolders[folderId].color;
-    setFolders(updatedFolders);
+    chatHistoryApi.setChatFolderColor(folder.path, _color);
     setShowPalette(false);
   };
 
@@ -107,21 +86,12 @@ const ChatFolder = ({
     if (e.dataTransfer) {
       e.stopPropagation();
       setIsHover(false);
+      const chatPath = e.dataTransfer
+        .getData('chatPath')
+        .split(',')
+        .map(Number);
 
-      // expand folder on drop
-      const updatedFolders: FolderCollection = JSON.parse(
-        JSON.stringify(useStore.getState().folders)
-      );
-      updatedFolders[folderId].expanded = true;
-      setFolders(updatedFolders);
-
-      // update chat folderId to new folderId
-      const chatIndex = Number(e.dataTransfer.getData('chatIndex'));
-      const updatedChats: ChatInterface[] = JSON.parse(
-        JSON.stringify(useStore.getState().chats)
-      );
-      updatedChats[chatIndex].folder = folderId;
-      setChats(updatedChats);
+      chatHistoryApi.moveChatThreadToFolder(chatPath, folder.path, true);
     }
   };
 
@@ -136,11 +106,9 @@ const ChatFolder = ({
   };
 
   const toggleExpanded = () => {
-    const updatedFolders: FolderCollection = JSON.parse(
-      JSON.stringify(useStore.getState().folders)
-    );
-    updatedFolders[folderId].expanded = !updatedFolders[folderId].expanded;
-    setFolders(updatedFolders);
+    chatHistoryApi.mutateChatFolder(folder.path, (folder) => {
+      folder.expanded = !folder.expanded;
+    });
   };
 
   useEffect(() => {
@@ -157,20 +125,20 @@ const ChatFolder = ({
       onDragLeave={handleDragLeave}
     >
       <div
-        style={{ background: color || '' }}
+        style={{ background: folder.color || '' }}
         className={`${
-          color ? '' : 'hover:bg-gray-850'
+          folder.color ? '' : 'hover:bg-gray-850'
         } transition-colors flex py-2 pl-2 pr-1 items-center gap-3 relative rounded-md break-all cursor-pointer parent-sibling`}
         onClick={toggleExpanded}
         ref={folderRef}
         onMouseEnter={() => {
-          if (color && folderRef.current)
-            folderRef.current.style.background = `${color}dd`;
+          if (folder.color && folderRef.current)
+            folderRef.current.style.background = `${folder.color}dd`;
           if (gradientRef.current) gradientRef.current.style.width = '0px';
         }}
         onMouseLeave={() => {
-          if (color && folderRef.current)
-            folderRef.current.style.background = color;
+          if (folder.color && folderRef.current)
+            folderRef.current.style.background = folder.color;
           if (gradientRef.current) gradientRef.current.style.width = '1rem';
         }}
       >
@@ -197,9 +165,9 @@ const ChatFolder = ({
               className='absolute inset-y-0 right-0 w-4 z-10 transition-all'
               style={{
                 background:
-                  color &&
+                  folder.color &&
                   `linear-gradient(to left, ${
-                    color || 'var(--color-900)'
+                    folder.color || 'var(--color-900)'
                   }, rgb(32 33 35 / 0))`,
               }}
             />
@@ -272,7 +240,7 @@ const ChatFolder = ({
               <button className='p-1 hover:text-white' onClick={toggleExpanded}>
                 <DownChevronArrow
                   className={`${
-                    isExpanded ? 'rotate-180' : ''
+                    folder.expanded ? 'rotate-180' : ''
                   } transition-transform`}
                 />
               </button>
@@ -281,15 +249,9 @@ const ChatFolder = ({
         </div>
       </div>
       <div className='ml-3 pl-1 border-l-2 border-gray-700 flex flex-col gap-1 parent'>
-        {isExpanded && <NewChat folder={folderId} />}
-        {isExpanded &&
-          folderChats.map((chat) => (
-            <ChatHistory
-              title={chat.title}
-              chatIndex={chat.index}
-              key={`${chat.title}-${chat.index}`}
-            />
-          ))}
+        {folder.expanded && <NewChat parentPath={folder.path} />}
+        {folder.expanded &&
+          folder.children.map((item) => ChatHistoryItemComponent({ item }))}
       </div>
     </div>
   );

@@ -14,10 +14,13 @@ import PdfIcon from '@icon/PdfIcon';
 import MarkdownIcon from '@icon/MarkdownIcon';
 import JsonIcon from '@icon/JsonIcon';
 
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
+
 import downloadFile from '@utils/downloadFile';
 
 const DownloadChat = React.memo(
   ({ saveRef }: { saveRef: React.RefObject<HTMLDivElement> }) => {
+    const chatHistoryApi = useChatHistoryApi();
     const { t } = useTranslation();
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     return (
@@ -45,11 +48,8 @@ const DownloadChat = React.memo(
                     downloadImg(
                       imgData,
                       `${
-                        useStore
-                          .getState()
-                          .chats?.[
-                            useStore.getState().currentChatIndex
-                          ].title.trim() ?? 'download'
+                        chatHistoryApi.activeChatThread()?.title.trim() ??
+                        'download'
                       }.png`
                     );
                   }
@@ -84,18 +84,12 @@ const DownloadChat = React.memo(
                 className='btn btn-neutral gap-2'
                 onClick={async () => {
                   if (saveRef && saveRef.current) {
-                    const chats = useStore.getState().chats;
-                    if (chats) {
-                      const markdown = chatToMarkdown(
-                        chats[useStore.getState().currentChatIndex]
-                      );
+                    const chatThread = chatHistoryApi.activeChatThread();
+                    if (chatThread) {
+                      const markdown = chatToMarkdown(chatThread);
                       downloadMarkdown(
                         markdown,
-                        `${
-                          chats[
-                            useStore.getState().currentChatIndex
-                          ].title.trim() ?? 'download'
-                        }.md`
+                        `${chatThread.title.trim() ?? 'download'}.md`
                       );
                     }
                   }
@@ -107,10 +101,9 @@ const DownloadChat = React.memo(
               <button
                 className='btn btn-neutral gap-2'
                 onClick={async () => {
-                  const chats = useStore.getState().chats;
-                  if (chats) {
-                    const chat = chats[useStore.getState().currentChatIndex];
-                    downloadFile([chat], chat.title);
+                  const chatThread = chatHistoryApi.activeChatThread();
+                  if (chatThread) {
+                    downloadFile([chatThread], chatThread.title);
                   }
                 }}
               >

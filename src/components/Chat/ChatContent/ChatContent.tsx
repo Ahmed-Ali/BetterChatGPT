@@ -12,25 +12,17 @@ import useSubmit from '@hooks/useSubmit';
 import DownloadChat from './DownloadChat';
 import CloneChat from './CloneChat';
 import ShareGPT from '@components/ShareGPT';
+import useChatHistoryApi from '@hooks/useChatHistoryApi';
 
 const ChatContent = () => {
   const inputRole = useStore((state) => state.inputRole);
   const setError = useStore((state) => state.setError);
-  const messages = useStore((state) =>
-    state.chats &&
-    state.chats.length > 0 &&
-    state.currentChatIndex >= 0 &&
-    state.currentChatIndex < state.chats.length
-      ? state.chats[state.currentChatIndex].messages
-      : []
+  const chatHistoryApi = useChatHistoryApi();
+  const messages = useStore(
+    (state) => chatHistoryApi.activeChatThread()?.messages ?? []
   );
-  const stickyIndex = useStore((state) =>
-    state.chats &&
-    state.chats.length > 0 &&
-    state.currentChatIndex >= 0 &&
-    state.currentChatIndex < state.chats.length
-      ? state.chats[state.currentChatIndex].messages.length
-      : 0
+  const stickyIndex = useStore(
+    (state) => chatHistoryApi.activeChatThread()?.messages.length ?? 0
   );
   const advancedMode = useStore((state) => state.advancedMode);
   const generating = useStore.getState().generating;
@@ -63,18 +55,21 @@ const ChatContent = () => {
             {!generating && advancedMode && messages?.length === 0 && (
               <NewMessageButton messageIndex={-1} />
             )}
-            {messages?.map((message, index) => (
-              (advancedMode || index !== 0 || message.role !== 'system') && (
-                <React.Fragment key={index}>
-                  <Message
-                    role={message.role}
-                    content={message.content}
-                    messageIndex={index}
-                  />
-                  {!generating && advancedMode && <NewMessageButton messageIndex={index} />}
-                </React.Fragment>
-              )
-            ))}
+            {messages?.map(
+              (message, index) =>
+                (advancedMode || index !== 0 || message.role !== 'system') && (
+                  <React.Fragment key={index}>
+                    <Message
+                      role={message.role}
+                      content={message.content}
+                      messageIndex={index}
+                    />
+                    {!generating && advancedMode && (
+                      <NewMessageButton messageIndex={index} />
+                    )}
+                  </React.Fragment>
+                )
+            )}
           </div>
 
           <Message

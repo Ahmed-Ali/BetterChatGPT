@@ -49,7 +49,38 @@ export interface Folder {
   color?: string;
 }
 
-export type ModelOptions = 'gpt-4' | 'gpt-4-32k' | 'gpt-3.5-turbo' | 'gpt-3.5-turbo-16k' ;
+// Updated history structure
+// to allow nested folders
+
+export interface HistoryItemInterface {
+  id: string;
+  title: string;
+  config: ConfigInterface;
+  // will be used to traverse the chat history tree
+  path: number[];
+}
+
+export interface ChatThreadInterface extends HistoryItemInterface {
+  messages: MessageInterface[];
+  titleSet: boolean;
+}
+
+export interface ChatFolderInterface extends HistoryItemInterface {
+  children: ChatHistoryItem[];
+  expanded: boolean;
+  color?: string;
+}
+
+export type ChatHistoryItem = ChatFolderInterface | ChatThreadInterface;
+
+// Root folder
+export type ChatHistoryListInterface = ChatFolderInterface;
+
+export type ModelOptions =
+  | 'gpt-4'
+  | 'gpt-4-32k'
+  | 'gpt-3.5-turbo'
+  | 'gpt-3.5-turbo-16k';
 // | 'gpt-3.5-turbo-0301';
 // | 'gpt-4-0314'
 // | 'gpt-4-32k-0314'
@@ -146,4 +177,47 @@ export interface LocalStorageInterfaceV7oV8
   foldersName: string[];
   foldersExpanded: boolean[];
   folders: FolderCollection;
+}
+
+export interface LocalStorageInterfaceV8ToV9 {
+  /*
+    deprecated - exists only to support migration to V9.
+    Use chatHistory instead. This property will be removed from future releases
+   */
+  chats: ChatInterface[];
+  /*
+    deprecated - exists only to support migration to V9.
+    Use the hierarchy of chatHistory instead.
+    This property will be removed from future releases
+   */
+  folders: FolderCollection;
+
+  /*
+    deprecated - exists only to support migration to V9.
+    Use activeChatPath instead.
+    This property will be removed from future releases
+   */
+  currentChatIndex: number /* deprecated - exists only to support migration without compiler errors. Will be removed from future releases */;
+
+  /*
+    deprecated - exists only to support migration to V9.
+    Default config will be set on the chatHistory instance
+    Folders and chat threads will inherit their parent's config.
+    This property will be removed from future releases
+   */
+  defaultChatConfig: ConfigInterface;
+
+  chatHistory: ChatHistoryListInterface;
+  activeChatPath: number[];
+  apiFree?: boolean;
+  apiKey: string;
+  apiEndpoint: string;
+  theme: Theme;
+  autoTitle: boolean;
+  prompts: Prompt[];
+
+  defaultSystemMessage: string;
+  hideMenuOptions: boolean;
+  firstVisit: boolean;
+  hideSideMenu: boolean;
 }

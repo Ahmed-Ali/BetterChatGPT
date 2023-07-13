@@ -1,5 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
-import { ChatInterface, ConfigInterface, ModelOptions } from '@type/chat';
+import {
+  ChatHistoryListInterface,
+  ConfigInterface,
+  ChatInterface,
+  ModelOptions,
+} from '@type/chat';
 import useStore from '@store/store';
 
 const date = new Date();
@@ -99,6 +104,15 @@ export const _defaultChatConfig: ConfigInterface = {
   presence_penalty: 0,
   top_p: 1,
   frequency_penalty: 0,
+};
+
+export const _defaultEmptyChatHistory: ChatHistoryListInterface = {
+  id: uuidv4(),
+  title: 'Chat History',
+  config: _defaultChatConfig,
+  children: [],
+  path: [],
+  expanded: true,
 };
 
 export const generateDefaultChat = (

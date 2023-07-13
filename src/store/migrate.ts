@@ -11,6 +11,7 @@ import {
   LocalStorageInterfaceV5ToV6,
   LocalStorageInterfaceV6ToV7,
   LocalStorageInterfaceV7oV8,
+  LocalStorageInterfaceV8ToV9,
 } from '@type/chat';
 import {
   _defaultChatConfig,
@@ -19,6 +20,10 @@ import {
 } from '@constants/chat';
 import { officialAPIEndpoint } from '@constants/auth';
 import defaultPrompts from '@constants/prompt';
+import {
+  createUpdatedChatHistoryFromLegacyChats,
+  findChatPathById,
+} from '@utils/chat';
 
 export const migrateV0 = (persistedState: LocalStorageInterfaceV0ToV1) => {
   persistedState.chats.forEach((chat) => {
@@ -103,4 +108,29 @@ export const migrateV7 = (persistedState: LocalStorageInterfaceV7oV8) => {
     if (chat.folder) chat.folder = folderNameToIdMap[chat.folder];
     chat.id = uuidv4();
   });
+};
+
+export const migrateV8 = (persistedState: LocalStorageInterfaceV8ToV9) => {
+  // root folder
+  persistedState.chatHistory = createUpdatedChatHistoryFromLegacyChats(
+    persistedState.chats,
+    persistedState.folders,
+    persistedState.defaultChatConfig
+  );
+
+  const currentChat =
+    persistedState.currentChatIndex >= 0 &&
+    persistedState.chats.length > persistedState.currentChatIndex
+      ? persistedState.chats[persistedState.currentChatIndex]
+      : undefined;
+
+  if (currentChat) {
+    persistedState.activeChatPath =
+      findChatPathById(persistedState.chatHistory, currentChat.id) ?? [];
+  }
+
+  // TODO: Clear unused fields
+  // persistedState.chats = [];
+  // persistedState.currentChatIndex = -1;
+  // persistedState.folders = {};
 };

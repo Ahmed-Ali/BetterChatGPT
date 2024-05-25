@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { defaultModel, modelCost } from '@constants/chat';
 import useStore from '@store/store';
 import countTokens from '@utils/messageUtils';
-import { defaultModel, modelCost } from '@constants/chat';
+import React, { useEffect, useMemo, useState } from 'react';
 
 interface TokenCountProps {
   content: string;
@@ -11,7 +11,7 @@ const TokenCount = React.memo<TokenCountProps>(({ content, role }) => {
   const [tokenCount, setTokenCount] = useState<number>(0);
   const generating = useStore((state) => state.generating);
   const model = useStore((state) =>
-    state.chats
+    state.chats && state.chats.length > 0 && state.chats.length < state.currentChatIndex
       ? state.chats[state.currentChatIndex].config.model
       : defaultModel
   );
